@@ -1,18 +1,18 @@
 # PortfoLive
 
 Automated personal-portfolio generator with self-service deployment, delivered with a full DevOps toolchain.
-Users sign up, fill in a form, pick a template, click **Publish**, and get a live URL on AWS CloudFront.
+Users sign up, fill in a form, pick a template, click **Publish**, and get a live URL on AWS (S3 website hosting, or CloudFront when `enable_cloudfront=true`).
 
 **New here? Open [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) and follow it from Part 1.**
 
 ## Architecture
 ```
-User -> React -> FastAPI -> Jinja2 template -> boto3 -> S3 -> CloudFront -> live URL
+User -> React -> FastAPI -> Jinja2 template -> boto3 -> S3 (-> CloudFront, optional) -> live URL
                     |-> SQLite (users, portfolios, deployment history)
                     |-> /metrics -> Prometheus -> Grafana, Alertmanager -> Slack
 
 GitHub -> Jenkins: tests+coverage -> SonarQube gate -> Docker build -> OWASP ZAP -> push -> blue/green deploy -> Slack
-Terraform (VPC, 3 EC2, S3, CloudFront, IAM)  ->  Ansible (Docker, Jenkins, SonarQube, k3s, monitoring)
+Terraform (VPC, 3 EC2, S3, optional CloudFront, IAM)  ->  Ansible (Docker, Jenkins, SonarQube, k3s, monitoring)
 ```
 
 ## Where things are

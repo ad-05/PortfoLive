@@ -12,8 +12,8 @@ class Settings:
     storage: str = "local"                # "local" (dev) or "s3" (prod)
     public_base_url: str = ""
     s3_bucket: str = ""
-    cloudfront_distribution_id: str = ""
-    cloudfront_url: str = ""
+    cloudfront_distribution_id: str = ""  # optional; empty = serve straight from S3 website hosting
+    cloudfront_url: str = ""              # public base URL (CloudFront, or the S3 website endpoint)
     aws_region: str = "ap-south-1"
     production: bool = False
 
@@ -43,6 +43,7 @@ class Settings:
         )
         if s.production and (s.jwt_secret == cls.jwt_secret or len(s.jwt_secret) < 32):
             raise RuntimeError("JWT_SECRET must be set (32+ chars) in production")
-        if s.storage == "s3" and not (s.s3_bucket and s.cloudfront_distribution_id and s.cloudfront_url):
-            raise RuntimeError("STORAGE=s3 needs S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID and CLOUDFRONT_URL")
+        # CLOUDFRONT_DISTRIBUTION_ID is optional: empty means "no CloudFront", and CLOUDFRONT_URL is then the S3 website URL.
+        if s.storage == "s3" and not (s.s3_bucket and s.cloudfront_url):
+            raise RuntimeError("STORAGE=s3 needs S3_BUCKET and CLOUDFRONT_URL (the public base URL of the sites)")
         return s

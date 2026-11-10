@@ -1,22 +1,40 @@
----
+- name: Remove old Jenkins source and key files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/apt/sources.list.d/jenkins.list
+    - /etc/apt/keyrings/jenkins.gpg
+    - /etc/apt/keyrings/jenkins-keyring.asc
+
+- name: Create apt keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download and dearmor Jenkins 2026 GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key | gpg --dearmor -o /etc/apt/keyrings/jenkins.gpg
+
+- name: Add Jenkins apt repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/jenkins.list
+    content: "deb [signed-by=/etc/apt/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian-stable binary/\n"
+  register: jenkins_repo
+
+- name: Update apt cache after adding Jenkins repo
+  ansible.builtin.apt:
+    update_cache: yes
+
 - name: Install Java (Jenkins runtime)
   ansible.builtin.apt:
-    name: openjdk-17-jre-headless
-    state: present
-
-- name: Add the Jenkins apt repository (signing key is fetched by the module)
-  ansible.builtin.deb822_repository:
-    name: jenkins
-    types: [deb]
-    uris: https://pkg.jenkins.io/debian-stable
-    suites: [binary/]
-    signed_by: "{{ jenkins_key_url }}"
+    name: openjdk-21-jre-headless
     state: present
 
 - name: Install Jenkins
   ansible.builtin.apt:
     name: jenkins
-    update_cache: true
     state: present
 
 - name: Install kubectl at the pinned version

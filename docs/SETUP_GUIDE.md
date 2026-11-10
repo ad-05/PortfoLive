@@ -148,10 +148,14 @@ terraform apply \
   -var admin_cidr=<your-ip>/32 \
   -var ssh_private_key_path=~/.ssh/portfolive.pem
 ```
+Add `-var enable_cloudfront=true` only once AWS has verified your account for CloudFront (new accounts get a
+"verification required" error). The default is **off**: published sites are then served from S3 website hosting
+(public bucket, HTTP only, no CDN cache). Turn it on later by re-running `terraform apply` with the same variables
+plus `-var enable_cloudfront=true`, then re-run the Ansible playbook so the app picks up the new URL.
 Type `yes`. It takes about 5 minutes. `bucket_name` must be globally unique, lowercase.
 
 What it created: a VPC, subnet, internet gateway, route table, a security group that only lets **your IP** reach
-SSH/Jenkins/SonarQube/Grafana/etc., three Ubuntu EC2 servers, a private S3 bucket, a CloudFront distribution, and a
+SSH/Jenkins/SonarQube/Grafana/etc., three Ubuntu EC2 servers, an S3 bucket (private behind CloudFront, or public website hosting when CloudFront is off), an optional CloudFront distribution, and a
 least-privilege IAM user for the app. It also wrote **`ansible/inventory.ini`** (server IPs) and
 **`ansible/group_vars/all/terraform.yml`** (bucket name, CloudFront ID, app AWS keys). Both are git-ignored.
 
@@ -278,9 +282,9 @@ replace the `slack_configs` block in `monitoring/alertmanager.yml`. Run `amtool 
 ## Part 11: Use the app for real, and demonstrate everything
 
 1. Open `http://<k8s-ip>:30080`, register using the **same email as `admin_email`** > you get the **Admin** tab.
-2. Fill in the form > **Publish**. You get a URL like `https://dxxxx.cloudfront.net/<username>/`. Open it.
-   (The first load can take a minute while CloudFront warms up.) Edit and publish again to see an *update*
-   (targeted cache invalidation) in **Deployments**.
+2. Fill in the form > **Publish**. You get a URL like `https://dxxxx.cloudfront.net/<username>/` (or `http://<bucket>.s3-website.<region>.amazonaws.com/<username>/`
+   with CloudFront off). Open it. (With CloudFront, the first load can take a minute while it warms up.) Edit and publish again to see an *update*
+   (targeted cache invalidation; skipped when CloudFront is off) in **Deployments**.
 3. **Blue/green demo:** edit a template in `server/templates/`, commit on a branch, open a PR, merge.
    Jenkins builds; in the console you see `Live: blue -> deploying green`, then traffic flips.
    Show with `kubectl get pods -L color` and `kubectl get svc portfolive -o jsonpath='{.spec.selector}'`.
@@ -312,7 +316,7 @@ To use `kubectl` from your laptop: `export KUBECONFIG=$PWD/ansible/artifacts/k3s
 | Alertmanager | `monitoring/alert-rules.yml`, `alertmanager.yml` | Alerts page; test alert in Slack |
 | ChatOps (optional) | `notify()` in Jenkinsfile, Alertmanager Slack receiver | Slack messages |
 
-Security measures you can mention: private S3 bucket reachable only through CloudFront, least-privilege IAM, security
+Security measures you can mention: private S3 bucket reachable only through CloudFront (when enabled), least-privilege IAM, security
 group limited to your IP, secrets kept out of Git (Ansible vars / Kubernetes Secrets / Jenkins credentials), input
 validation + HTML escaping + Content-Security-Policy on generated sites, security headers, container runs as non-root,
 SAST (SonarQube) and DAST (ZAP) gates before deploy.
@@ -350,8 +354,8 @@ SAST (SonarQube) and DAST (ZAP) gates before deploy.
 | ZAP stage: `app` not resolving / health wait fails | See the container log: `docker logs portfolive-dast-<n>`. Usually a Python import error in the image. |
 | `ImagePullBackOff` in Kubernetes | Docker Hub repo is private. Make it public (Part 8). |
 | App pods `CrashLoopBackOff`, log says permission denied on `/data` | The volume is owned by root: `kubectl exec` is not possible while crashing, so run on the k3s server `sudo chmod -R 777 /var/lib/rancher/k3s/storage/*portfolive-data*` then delete the pods. |
-| Pods running but `/api/publish` fails with AWS error | Check `kubectl logs deploy/portfolive-<color>`; usually wrong bucket/region in `terraform.yml`, or CloudFront ID missing. |
-| Published site shows `AccessDenied` | CloudFront/OAC takes a few minutes after creation, or the URL lacks the trailing `/<username>/`. |
+| Pods running but `/api/publish` fails with AWS error | Check `kubectl logs deploy/portfolive-<color>`; usually wrong bucket/region in `terraform.yml`, or (with CloudFront on) a missing CloudFront ID. |
+| Published site shows `AccessDenied` | With CloudFront: OAC takes a few minutes after creation. With S3 website mode: re-run `terraform apply` (the public-access block must be relaxed before the public policy applies). Either way, check the URL has the trailing `/<username>/`. |
 | Prometheus `portfolive` job has no targets | No deploy has happened yet, or pods lack the `prometheus.io/scrape` annotation (they have it in `k8s/app`). |
 | Alerts fire but nothing reaches Slack | `slack_webhook_url` still the placeholder; rerun Ansible for `k3s-server` (Part 10). Check Alertmanager UI > Status. |
 | HPA shows `<unknown>` CPU | metrics-server needs ~1 minute after k3s starts; wait and recheck `kubectl top pods`. |
@@ -364,7 +368,7 @@ SAST (SonarQube) and DAST (ZAP) gates before deploy.
 - **SQLite on a shared volume** works because k3s is a single node. For multi-node or high availability, move to RDS (PostgreSQL).
 - **One Kubernetes node, one subnet, public IPs on all servers:** fine for a project, not production. Production
   would use private subnets, a NAT gateway, a load balancer, TLS everywhere, and managed Kubernetes (EKS).
-- **No HTTPS on the app itself** (only CloudFront sites have it). Add a domain, ACM certificate, and an ingress/ALB.
+- **No HTTPS on the app itself** (only CloudFront sites have it; with CloudFront off, published sites are HTTP-only on a public bucket). Add a domain, ACM certificate, and an ingress/ALB.
 - **ZAP API scan is unauthenticated**, so it exercises public endpoints only.
 - **Prometheus data is not persisted** (resets if its pod restarts).
 - Secrets are kept in Kubernetes Secrets (base64, not encrypted at rest by default).

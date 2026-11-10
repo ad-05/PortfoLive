@@ -1,5 +1,6 @@
-output "cloudfront_url" {
-  value = "https://${aws_cloudfront_distribution.cdn.domain_name}"
+output "site_base_url" {
+  description = "Where published portfolios are served (CloudFront if enabled, otherwise the S3 website endpoint)"
+  value       = local.use_cf ? "https://${aws_cloudfront_distribution.cdn[0].domain_name}" : "http://${aws_s3_bucket_website_configuration.site[0].website_endpoint}"
 }
 
 output "s3_bucket" {

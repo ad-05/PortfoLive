@@ -1,6 +1,6 @@
 # Replace @your-github-username with real handles. Matching owners are auto-requested as reviewers.
-*                       @your-github-username
-/terraform/             @your-github-username
-/ansible/               @your-github-username
-/k8s/                   @your-github-username
-/Jenkinsfile            @your-github-username
+*                       @ad-05
+/terraform/             @ad-05
+/ansible/               @ad-05
+/k8s/                   @ad-05
+/Jenkinsfile            @ad-05

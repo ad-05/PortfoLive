@@ -143,6 +143,30 @@ def test_s3_storage_uploads_and_invalidates():
         cf_stub.assert_no_pending_responses()
 
 
+def test_s3_storage_without_cloudfront_skips_invalidation():
+    s3 = boto3.client("s3", region_name="ap-south-1", aws_access_key_id="x", aws_secret_access_key="x")
+    with Stubber(s3) as s3_stub:
+        s3_stub.add_response("put_object", {}, {
+            "Bucket": "b", "Key": "jane/index.html", "Body": b"<html></html>",
+            "ContentType": "text/html; charset=utf-8", "CacheControl": "public, max-age=300",
+        })
+        storage = S3Storage("b", "", "http://b.s3-website.ap-south-1.amazonaws.com/", s3_client=s3)
+        assert storage.cloudfront is None
+        assert storage.publish("jane", "<html></html>") == "http://b.s3-website.ap-south-1.amazonaws.com/jane/"
+        storage.invalidate("jane")  # no CloudFront call, no error
+        s3_stub.assert_no_pending_responses()
+
+
+def test_s3_settings_need_url_but_not_distribution_id(monkeypatch):
+    for k, v in {"STORAGE": "s3", "S3_BUCKET": "b", "CLOUDFRONT_URL": "http://b.s3-website.x"}.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("CLOUDFRONT_DISTRIBUTION_ID", raising=False)
+    assert Settings.from_env().cloudfront_distribution_id == ""
+    monkeypatch.delenv("CLOUDFRONT_URL")
+    with pytest.raises(RuntimeError):
+        Settings.from_env()
+
+
 # ---------- security headers + HTTP metrics ----------
 def test_security_headers_and_csp(ctx):
     client, *_ = ctx
