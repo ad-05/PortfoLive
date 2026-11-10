@@ -1,0 +1,57 @@
+---
+- name: Install k3s (single node Kubernetes) with TLS names for the public and private IP  # noqa: command-instead-of-module
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    curl -sfL https://get.k3s.io |
+    INSTALL_K3S_CHANNEL={{ k3s_channel }}
+    sh -s - server
+    --tls-san {{ ansible_host }} --tls-san {{ private_ip }}
+    --write-kubeconfig-mode 644
+  args:
+    creates: /usr/local/bin/k3s
+    executable: /bin/bash
+
+- name: Wait until the node is Ready
+  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node --all --timeout=180s
+  changed_when: false
+  retries: 5
+  delay: 10
+  register: k3s_ready
+  until: k3s_ready.rc == 0
+
+- name: Fetch the kubeconfig to your laptop (for Jenkins' "kubeconfig" credential)
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ playbook_dir }}/artifacts/k3s-private.yaml"
+    flat: true
+
+- name: Lock the kubeconfig down (it is cluster-admin)
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/artifacts/k3s-private.yaml"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Make the kubeconfig for Jenkins point at the private IP (Jenkins and k3s share the VPC)
+  ansible.builtin.replace:
+    path: "{{ playbook_dir }}/artifacts/k3s-private.yaml"
+    regexp: "https://127.0.0.1:6443"
+    replace: "https://{{ private_ip }}:6443"
+  delegate_to: localhost
+  become: false
+
+- name: Make a second copy that points at the public IP (for running kubectl from your laptop)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/artifacts/k3s-private.yaml"
+    dest: "{{ playbook_dir }}/artifacts/k3s-public.yaml"
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+
+- name: Point the public copy at the public IP
+  ansible.builtin.replace:
+    path: "{{ playbook_dir }}/artifacts/k3s-public.yaml"
+    regexp: "https://{{ private_ip }}:6443"
+    replace: "https://{{ ansible_host }}:6443"
+  delegate_to: localhost
+  become: false

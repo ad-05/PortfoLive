@@ -1,0 +1,61 @@
+---
+- name: Install Java (Jenkins runtime)
+  ansible.builtin.apt:
+    name: openjdk-17-jre-headless
+    state: present
+
+- name: Add the Jenkins apt repository (signing key is fetched by the module)
+  ansible.builtin.deb822_repository:
+    name: jenkins
+    types: [deb]
+    uris: https://pkg.jenkins.io/debian-stable
+    suites: [binary/]
+    signed_by: "{{ jenkins_key_url }}"
+    state: present
+
+- name: Install Jenkins
+  ansible.builtin.apt:
+    name: jenkins
+    update_cache: true
+    state: present
+
+- name: Install kubectl at the pinned version
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: "0755"
+
+- name: Let the jenkins user run docker (pipeline builds images and runs SonarScanner/ZAP as containers)
+  ansible.builtin.user:
+    name: jenkins
+    groups: docker
+    append: true
+  notify: Restart Jenkins
+
+- name: Jenkins is enabled and running
+  ansible.builtin.service:
+    name: jenkins
+    state: started
+    enabled: true
+
+- name: Apply pending restart now so the docker group takes effect
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Jenkins to answer on port 8080
+  ansible.builtin.uri:
+    url: http://localhost:8080/login
+    status_code: [200, 403]
+  register: jenkins_up
+  retries: 30
+  delay: 10
+  until: jenkins_up.status in [200, 403]
+
+- name: Read the one-time Jenkins unlock password (only exists before first setup)
+  ansible.builtin.slurp:
+    src: /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_admin_pw
+  failed_when: false
+
+- name: Show the Jenkins unlock password
+  ansible.builtin.debug:
+    msg: "Jenkins unlock password: {{ (jenkins_admin_pw.content | default('') | b64decode | trim) or 'already set up' }}"

@@ -1,0 +1,25 @@
+# Run:  promtool test rules monitoring/tests/alert-rules.test.yml
+rule_files: [../alert-rules.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="portfolive", instance="10.0.0.5:4000"}'
+        values: '1 1 0 0 0 0'
+      - series: 'portfolive_deployments_total{status="failed"}'
+        values: '0+2x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PortfoLiveDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: portfolive, instance: "10.0.0.5:4000" }
+            exp_annotations:
+              summary: "PortfoLive pod 10.0.0.5:4000 is down"
+              description: "Prometheus has not been able to scrape 10.0.0.5:4000 for 1 minute."
+      - eval_time: 10m
+        alertname: DeploymentFailures
+        exp_alerts:
+          - exp_labels: { severity: warning, status: failed }
+            exp_annotations:
+              summary: "Portfolio deployments are failing"
+              description: "20 failed deployments in the last 15 minutes. Check S3/CloudFront permissions."

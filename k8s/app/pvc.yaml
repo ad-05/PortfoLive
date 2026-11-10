@@ -1,0 +1,10 @@
+# One shared volume for the SQLite database (users, portfolios, deployment history).
+# k3s's local-path storage is node-local, which is fine for this single-node cluster: both colors and
+# all replicas run on the same node and so can share it. For multi-node, move to RDS/PostgreSQL.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: portfolive-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }

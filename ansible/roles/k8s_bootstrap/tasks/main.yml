@@ -1,0 +1,109 @@
+---
+# Runs on the k3s server. Creates the monitoring stack and the app's Secret.
+# (The application itself is deployed by Jenkins, not here.)
+- name: Create working directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: [/opt/portfolive/k8s-monitoring, /opt/portfolive/monitoring]
+
+- name: Copy Kubernetes monitoring manifests
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../k8s/monitoring/"
+    dest: /opt/portfolive/k8s-monitoring/
+    mode: "0644"
+
+- name: Copy shared monitoring config (alert rules, Alertmanager, Grafana)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../monitoring/{{ item.src }}"
+    dest: "/opt/portfolive/monitoring/{{ item.dest }}"
+    mode: "0644"
+  loop:
+    - { src: alert-rules.yml, dest: alert-rules.yml }
+    - { src: alertmanager.yml, dest: alertmanager.yml }
+    - { src: grafana/provisioning/dashboards.yml, dest: dashboards.yml }
+    - { src: grafana/dashboards/portfolive.json, dest: portfolive.json }
+
+- name: Render Prometheus config (scrapes the app pods, the cluster, and node_exporter on every server)
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /opt/portfolive/monitoring/prometheus.yml
+    mode: "0644"
+
+- name: Render Grafana datasource (points at the in-cluster Prometheus)
+  ansible.builtin.template:
+    src: datasource.yml.j2
+    dest: /opt/portfolive/monitoring/datasource.yml
+    mode: "0644"
+
+- name: Create the monitoring namespace
+  ansible.builtin.command: k3s kubectl apply -f /opt/portfolive/k8s-monitoring/00-namespace.yaml
+  register: k8s_bootstrap_ns
+  changed_when: "'created' in k8s_bootstrap_ns.stdout"
+
+- name: Create or update ConfigMaps
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    k3s kubectl -n monitoring create configmap {{ item.name }} {{ item.file }}
+    --dry-run=client -o yaml | k3s kubectl apply -f -
+  args:
+    executable: /bin/bash
+  loop:
+    - { name: prometheus-config, file: "--from-file=prometheus.yml=/opt/portfolive/monitoring/prometheus.yml" }
+    - { name: prometheus-rules, file: "--from-file=alert-rules.yml=/opt/portfolive/monitoring/alert-rules.yml" }
+    - { name: alertmanager-config, file: "--from-file=alertmanager.yml=/opt/portfolive/monitoring/alertmanager.yml" }
+    - { name: grafana-datasource, file: "--from-file=datasource.yml=/opt/portfolive/monitoring/datasource.yml" }
+    - { name: grafana-dashboard-provider, file: "--from-file=dashboards.yml=/opt/portfolive/monitoring/dashboards.yml" }
+    - { name: grafana-dashboards, file: "--from-file=portfolive.json=/opt/portfolive/monitoring/portfolive.json" }
+  changed_when: true
+
+- name: Create or update Secrets (values are hidden from Ansible output)
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    k3s kubectl {{ item.ns }} create secret generic {{ item.name }} {{ item.literals }}
+    --dry-run=client -o yaml | k3s kubectl apply -f -
+  args:
+    executable: /bin/bash
+  no_log: true
+  changed_when: true
+  loop:
+    - name: alertmanager-slack
+      ns: -n monitoring
+      literals: "--from-literal=slack-webhook-url={{ slack_webhook_url | quote }}"
+    - name: grafana-admin
+      ns: -n monitoring
+      literals: "--from-literal=password={{ grafana_admin_password | quote }}"
+    - name: portfolive-secrets
+      ns: -n default
+      literals: >-
+        --from-literal=APP_ENV=production
+        --from-literal=STORAGE=s3
+        --from-literal=JWT_SECRET={{ jwt_secret | quote }}
+        --from-literal=ADMIN_EMAIL={{ admin_email | quote }}
+        --from-literal=S3_BUCKET={{ s3_bucket | quote }}
+        --from-literal=CLOUDFRONT_DISTRIBUTION_ID={{ cloudfront_distribution_id | quote }}
+        --from-literal=CLOUDFRONT_URL={{ cloudfront_url | quote }}
+        --from-literal=AWS_REGION={{ aws_region | quote }}
+        --from-literal=AWS_ACCESS_KEY_ID={{ aws_access_key_id | quote }}
+        --from-literal=AWS_SECRET_ACCESS_KEY={{ aws_secret_access_key | quote }}
+
+- name: Deploy Prometheus, Alertmanager and Grafana
+  ansible.builtin.command: k3s kubectl apply -f /opt/portfolive/k8s-monitoring/
+  register: k8s_bootstrap_apply
+  changed_when: "'created' in k8s_bootstrap_apply.stdout or 'configured' in k8s_bootstrap_apply.stdout"
+
+- name: Wait for the monitoring pods to be ready
+  ansible.builtin.command: k3s kubectl -n monitoring rollout status deployment/{{ item }} --timeout=240s
+  loop: [prometheus, alertmanager, grafana]
+  changed_when: false
+
+- name: Where to find everything
+  ansible.builtin.debug:
+    msg:
+      - "Jenkins      http://{{ hostvars['jenkins-server'].ansible_host }}:8080"
+      - "SonarQube    http://{{ hostvars['sonarqube-server'].ansible_host }}:9000   (first login admin / admin)"
+      - "Prometheus   http://{{ ansible_host }}:30090"
+      - "Alertmanager http://{{ ansible_host }}:30093"
+      - "Grafana      http://{{ ansible_host }}:30300   (user admin, password = grafana_admin_password)"
+      - "App          http://{{ ansible_host }}:30080   (after the first Jenkins deploy)"

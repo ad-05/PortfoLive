@@ -1,0 +1,6 @@
+# Non-secret settings. Secrets live in secrets.yml (copy secrets.yml.example) and terraform.yml (generated).
+k3s_channel: v1.30
+kubectl_version: v1.30.0          # kubectl may differ from the cluster by one minor version
+node_exporter_port: 9100
+sonarqube_image: sonarqube:community
+sonarqube_db_image: postgres:15

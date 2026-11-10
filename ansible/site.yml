@@ -1,0 +1,38 @@
+---
+- name: Pre-flight checks (runs on your laptop)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Required variables are set (see group_vars/all/secrets.yml.example)
+      ansible.builtin.assert:
+        that:
+          - jwt_secret is defined and jwt_secret != 'CHANGE_ME' and jwt_secret | length >= 32
+          - admin_email is defined and admin_email != 'CHANGE_ME'
+          - grafana_admin_password is defined and grafana_admin_password != 'CHANGE_ME'
+          - sonar_db_password is defined and sonar_db_password != 'CHANGE_ME'
+          - slack_webhook_url is defined
+          - s3_bucket is defined and aws_access_key_id is defined
+        fail_msg: >-
+          Missing or placeholder variables. Copy group_vars/all/secrets.yml.example to secrets.yml and fill it in,
+          and run `terraform apply` first (it writes group_vars/all/terraform.yml). jwt_secret must be 32+ characters.
+
+- name: Base configuration for every server
+  hosts: all
+  become: true
+  roles: [common]
+
+- name: Jenkins server
+  hosts: jenkins
+  become: true
+  roles: [docker, jenkins]
+
+- name: SonarQube server
+  hosts: sonarqube
+  become: true
+  roles: [docker, sonarqube]
+
+- name: Kubernetes (k3s) server with monitoring stack
+  hosts: k8s
+  become: true
+  roles: [k3s, k8s_bootstrap]

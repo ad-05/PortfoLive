@@ -1,0 +1,24 @@
+:root{--bg:#f6f7fb;--card:#fff;--text:#1b1f2a;--muted:#6b7280;--accent:#4f46e5;--border:#e5e7eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1220;--card:#181c2e;--text:#e7e9f2;--muted:#9aa1b8;--border:#2a3050}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif}
+nav{display:flex;gap:8px;align-items:center;padding:12px 24px;background:var(--card);border-bottom:1px solid var(--border)}
+nav strong{margin-right:16px;color:var(--accent);font-size:1.15rem}.spacer{flex:1}.muted{color:var(--muted)}
+.page{max-width:1200px;margin:24px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+input,textarea,select{width:100%;padding:9px 11px;margin:5px 0;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+select{width:auto}
+button{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font:inherit}
+button.active{border-color:var(--accent);color:var(--accent)}button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.link{border:0;background:none;color:var(--accent);padding:4px}
+.auth{max-width:380px;margin:60px auto;display:flex;flex-direction:column;gap:6px}
+.editor{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.side{display:flex;flex-direction:column;gap:16px;position:sticky;top:16px}
+.preview{width:100%;height:560px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.item{border:1px dashed var(--border);border-radius:8px;padding:10px;margin:8px 0}
+.row{display:flex;gap:8px;margin-top:10px}.error{color:#dc2626}.ok{color:#16a34a;word-break:break-all}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--border);font-size:.9rem}
+.badge{padding:2px 8px;border-radius:999px;font-size:.8rem}.badge.success{background:#dcfce7;color:#166534}.badge.failed{background:#fee2e2;color:#991b1b}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.stat{flex:1;min-width:130px;background:var(--bg);border-radius:10px;padding:14px;display:flex;flex-direction:column}
+.stat b{font-size:1.6rem}.stat span{color:var(--muted);font-size:.85rem}
+@media(max-width:800px){.editor{grid-template-columns:1fr}.side{position:static}}

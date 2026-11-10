@@ -1,0 +1,32 @@
+# Rendered by Jenkins:  IMAGE=<image> envsubst < deployment-blue.yaml | kubectl apply -f -
+# No "replicas" field on purpose: the HorizontalPodAutoscaler owns the replica count.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolive-blue
+spec:
+  selector:
+    matchLabels: { app: portfolive, color: blue }
+  template:
+    metadata:
+      labels: { app: portfolive, color: blue }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "4000"
+        prometheus.io/path: /metrics
+    spec:
+      securityContext: { runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }
+      containers:
+        - name: app
+          image: ${IMAGE}
+          ports: [{ containerPort: 4000 }]
+          envFrom: [{ secretRef: { name: portfolive-secrets } }]
+          volumeMounts: [{ name: data, mountPath: /data }]
+          readinessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 5, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: 4000 }, initialDelaySeconds: 15, periodSeconds: 10 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 384Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: portfolive-data }

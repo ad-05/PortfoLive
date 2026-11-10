@@ -1,0 +1,13 @@
+---
+- name: Update apt cache and install base packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: [ca-certificates, curl, git, unzip, jq, gettext-base, openssl, prometheus-node-exporter]
+    state: present
+
+- name: Enable and start node_exporter (host metrics on the node_exporter_port)
+  ansible.builtin.service:
+    name: prometheus-node-exporter
+    state: started
+    enabled: true

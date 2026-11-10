@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ name }} | Portfolio</title>
+<style>
+{% block theme %}{% endblock %}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);line-height:1.6}
+main{max-width:860px;margin:0 auto;padding:64px 24px}
+h1{font-size:2.6rem;margin:0}
+h2{border-bottom:2px solid var(--accent);padding-bottom:6px;margin-top:48px}
+.sub{color:var(--accent);font-size:1.2rem;margin:4px 0 16px}
+.muted{opacity:.6}
+a{color:var(--accent)}
+.links a{margin-right:14px}
+.tags{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.tags li{background:var(--card);padding:4px 12px;border-radius:999px;font-size:.9rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+article{background:var(--card);padding:16px 18px;border-radius:10px}
+article h3{margin:0 0 6px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>{{ name }}</h1>
+    {% if title %}<p class="sub">{{ title }}</p>{% endif %}
+    {% if bio %}<p>{{ bio }}</p>{% endif %}
+    <p class="links">
+      {% if email %}<a href="mailto:{{ email }}">{{ email }}</a>{% endif %}
+      {% if github %}<a href="{{ github }}">GitHub</a>{% endif %}
+      {% if linkedin %}<a href="{{ linkedin }}">LinkedIn</a>{% endif %}
+    </p>
+  </header>
+
+  {% if skills %}
+  <section>
+    <h2>Skills</h2>
+    <ul class="tags">{% for skill in skills %}<li>{{ skill }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if projects %}
+  <section>
+    <h2>Projects</h2>
+    <div class="grid">
+      {% for p in projects %}
+      <article>
+        <h3>{% if p.link %}<a href="{{ p.link }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}</h3>
+        <p>{{ p.description }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if education %}
+  <section>
+    <h2>Education</h2>
+    {% for e in education %}
+    <p><strong>{{ e.school }}</strong>{% if e.degree %} &mdash; {{ e.degree }}{% endif %}{% if e.years %} <span class="muted">({{ e.years }})</span>{% endif %}</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+</main>
+</body>
+</html>

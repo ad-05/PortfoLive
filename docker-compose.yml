@@ -1,0 +1,39 @@
+# Local run (no AWS needed):  docker compose up --build
+#   app          http://localhost:4000     (register with admin@example.com to get the admin tab)
+#   prometheus   http://localhost:9090     (Status > Rules shows the alert rules)
+#   alertmanager http://localhost:9093
+#   grafana      http://localhost:3000     (admin / admin, dashboard "PortfoLive Overview" is pre-loaded)
+services:
+  app:
+    build: .
+    ports: ["4000:4000"]
+    environment:
+      JWT_SECRET: local-dev-secret-local-dev-secret-1234
+      APP_ENV: development
+      ADMIN_EMAIL: admin@example.com
+      STORAGE: local
+    volumes: ["portfolive-data:/data"]
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports: ["9090:9090"]
+    depends_on: [app, alertmanager]
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./monitoring/slack-webhook-url.placeholder:/etc/alertmanager/secrets/slack-webhook-url:ro
+    ports: ["9093:9093"]
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment: { GF_SECURITY_ADMIN_PASSWORD: admin }
+    volumes:
+      - ./monitoring/grafana/provisioning/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./monitoring/grafana/provisioning/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+volumes:
+  portfolive-data:

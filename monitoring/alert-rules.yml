@@ -1,0 +1,72 @@
+groups:
+  - name: portfolive-app
+    rules:
+      - alert: PortfoLiveDown
+        expr: up{job="portfolive"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "PortfoLive pod {{ $labels.instance }} is down"
+          description: "Prometheus has not been able to scrape {{ $labels.instance }} for 1 minute."
+      - alert: PortfoLiveNoTargets
+        expr: absent(up{job="portfolive"})
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "No PortfoLive instances are being scraped"
+          description: "No running PortfoLive pods found. The site's backend may be fully down."
+      - alert: HighHttp5xxRate
+        expr: |
+          sum(rate(portfolive_http_requests_total{status=~"5.."}[5m]))
+            / sum(rate(portfolive_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 5% of requests are failing with 5xx"
+          description: "5xx ratio over the last 5 minutes is {{ $value | humanizePercentage }}."
+      - alert: DeploymentFailures
+        expr: increase(portfolive_deployments_total{status="failed"}[15m]) > 3
+        labels: { severity: warning }
+        annotations:
+          summary: "Portfolio deployments are failing"
+          description: "{{ $value | printf \"%.0f\" }} failed deployments in the last 15 minutes. Check S3/CloudFront permissions."
+      - alert: SlowDeployments
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(portfolive_deployment_duration_seconds_bucket[10m]))) > 5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 deployment time above 5 seconds"
+          description: "p95 deployment duration is {{ $value | printf \"%.1f\" }}s."
+  - name: portfolive-hosts
+    rules:
+      - alert: HostDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Server {{ $labels.instance }} is unreachable"
+          description: "node_exporter on {{ $labels.instance }} has not responded for 2 minutes."
+      - alert: HostHighCpu
+        expr: 100 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100 > 85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage has been above 85% for 10 minutes ({{ $value | printf \"%.0f\" }}%)."
+      - alert: HostHighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High memory use on {{ $labels.instance }}"
+          description: "Memory usage above 90% for 10 minutes ({{ $value | printf \"%.0f\" }}%)."
+      - alert: HostDiskLow
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"} < 0.15
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Disk almost full on {{ $labels.instance }}"
+          description: "Less than 15% of the root disk is free."

@@ -1,0 +1,14 @@
+.git
+**/node_modules
+**/__pycache__
+**/.venv
+**/.pytest_cache
+client/dist
+server/public
+server/data
+server/coverage.xml
+terraform
+ansible
+k8s
+docs
+*.md

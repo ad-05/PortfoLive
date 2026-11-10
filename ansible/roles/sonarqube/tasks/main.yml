@@ -1,0 +1,43 @@
+---
+- name: SonarQube's Elasticsearch needs a higher mmap limit (persisted across reboots)
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-sonarqube.conf
+    content: |
+      vm.max_map_count=262144
+      fs.file-max=65536
+    mode: "0644"
+  register: sonarqube_sysctl
+
+- name: Apply sysctl settings now
+  ansible.builtin.command: sysctl --system
+  when: sonarqube_sysctl.changed
+  # noqa: no-handler
+  changed_when: true
+
+- name: Create the SonarQube directory
+  ansible.builtin.file:
+    path: /opt/sonarqube
+    state: directory
+    mode: "0750"
+
+- name: Write docker-compose.yml (SonarQube + PostgreSQL)
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/sonarqube/docker-compose.yml
+    mode: "0600"
+  register: sonarqube_compose
+
+- name: Start SonarQube
+  ansible.builtin.command: docker compose up -d
+  args:
+    chdir: /opt/sonarqube
+  changed_when: sonarqube_compose.changed
+
+- name: Wait for SonarQube to report UP (first start takes a few minutes)
+  ansible.builtin.uri:
+    url: http://localhost:9000/api/system/status
+    return_content: true
+  register: sonarqube_status
+  retries: 40
+  delay: 10
+  until: sonarqube_status.status == 200 and ('"status":"UP"' in (sonarqube_status.content | replace(' ', '')))
