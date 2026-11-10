@@ -42,17 +42,23 @@ pipeline {
     }
 
     stage('SonarQube analysis') {
-  steps {
-    withSonarQubeEnv('sonarqube') {
-      sh '''
-        docker run --rm -u $(id -u):$(id -g) \
-          -e SONAR_HOST_URL="$SONAR_HOST_URL" -e SONAR_TOKEN="$SONAR_AUTH_TOKEN" \
-          -e SONAR_USER_HOME=/tmp/sonar \
-          -v "$PWD:/usr/src" -w /usr/src sonarsource/sonar-scanner-cli \
-          -Dsonar.working.directory=.scannerwork
-      '''
+    steps {
+        withSonarQubeEnv('sonarqube') {
+            sh '''
+                mkdir -p .scannerwork
+
+                docker run --rm \
+                  -u "$(id -u):$(id -g)" \
+                  -e SONAR_HOST_URL="$SONAR_HOST_URL" \
+                  -e SONAR_TOKEN="$SONAR_AUTH_TOKEN" \
+                  -e SONAR_USER_HOME=/tmp/sonar \
+                  -v "$WORKSPACE:/usr/src" \
+                  -w /usr/src \
+                  sonarsource/sonar-scanner-cli \
+                  -Dsonar.working.directory=/usr/src/.scannerwork
+            '''
+        }
     }
-  }
 }
     stage('Quality gate') {
       steps { timeout(time: 10, unit: 'MINUTES') { waitForQualityGate abortPipeline: true } }
