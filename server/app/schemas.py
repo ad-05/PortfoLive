@@ -11,8 +11,26 @@ def _clean(n: int):
 
 
 def _url(v) -> str:
+    """Accepts https://x, http://x, or a bare domain like linkedin.com/in/jane (https:// is added).
+    Any other scheme (javascript:, data:, ftp:...) is dropped, so it can never reach an href."""
     v = _clean(200)(v)
-    return v if re.match(r"^https?://", v, re.I) else ""  # blocks javascript: etc.
+    if re.match(r"^https?://\S+$", v, re.I):
+        return v
+    if re.match(r"^[a-z][a-z0-9+.\-]*:", v, re.I):  # some other scheme -> blocked
+        return ""
+    if re.match(r"^(www\.)?[\w\-]+(\.[\w\-]+)+(/\S*)?$", v, re.I):  # bare domain
+        return "https://" + v
+    return ""
+
+
+def _social(base: str, bare: str = ""):
+    """Like _url, but also accepts just the handle (e.g. 'janedoe' or 'in/janedoe')."""
+    def fix(v) -> str:
+        v = _clean(200)(v).lstrip("@")
+        if re.match(r"^[\w\-.]+(/[\w\-.%]+)*/?$", v) and "." not in v.split("/")[0]:
+            return base + (bare if "/" not in v else "") + v  # a bare handle, not a domain
+        return _url(v)
+    return fix
 
 
 def _compact(v):
@@ -27,6 +45,8 @@ def _required(v: str) -> str:
 
 Short = lambda n: Annotated[str, BeforeValidator(_clean(n))]  # noqa: E731
 Url = Annotated[str, BeforeValidator(_url)]
+GithubUrl = Annotated[str, BeforeValidator(_social("https://github.com/"))]
+LinkedinUrl = Annotated[str, BeforeValidator(_social("https://www.linkedin.com/", "in/"))]
 
 
 class Project(BaseModel):
@@ -46,8 +66,8 @@ class PortfolioData(BaseModel):
     title: Short(100) = ""
     bio: Short(1500) = ""
     email: Short(120) = ""
-    github: Url = ""
-    linkedin: Url = ""
+    github: GithubUrl = ""      # https://github.com/x, github.com/x or just x
+    linkedin: LinkedinUrl = ""  # https://linkedin.com/in/x, linkedin.com/in/x or in/x
     skills: Annotated[list[Short(40)], BeforeValidator(lambda v: _compact([_clean(40)(x) for x in v]) if isinstance(v, list) else []), Field(max_length=30)] = []
     projects: Annotated[list[Project], BeforeValidator(_compact), Field(max_length=12)] = []
     education: Annotated[list[Education], BeforeValidator(_compact), Field(max_length=8)] = []

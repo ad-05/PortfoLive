@@ -1,0 +1,7 @@
+{% extends "_base.html.j2" %}
+{% block theme %}:root{--bg:#07110b;--fg:#c9f7d6;--accent:#4ade80;--accent-2:#22d3ee;--card:#0c1a11;--border:rgba(74,222,128,.25);--font:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;--radius:4px;--shadow:none}
+h1::before{content:"$ ";color:var(--accent)}
+h2::before{content:"> ";letter-spacing:0}
+.avatar{border-radius:4px;color:#07110b}
+.btn,.tags li{border-radius:4px}
+.card:hover{box-shadow:0 0 0 1px var(--accent)}{% endblock %}

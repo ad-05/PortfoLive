@@ -51,8 +51,8 @@ export default function Editor() {
         <input placeholder="Headline (e.g. CS student)" value={data.title} onChange={set('title')} />
         <textarea placeholder="Short bio" rows={4} value={data.bio} onChange={set('bio')} />
         <input placeholder="Contact email" value={data.email} onChange={set('email')} />
-        <input placeholder="GitHub URL" value={data.github} onChange={set('github')} />
-        <input placeholder="LinkedIn URL" value={data.linkedin} onChange={set('linkedin')} />
+        <input placeholder="GitHub (username or URL)" value={data.github} onChange={set('github')} />
+        <input placeholder="LinkedIn (in/yourname or URL)" value={data.linkedin} onChange={set('linkedin')} />
         <input placeholder="Skills, comma separated" value={data.skills.join(', ')}
           onChange={e => setData({ ...data, skills: e.target.value.split(',').map(s => s.trimStart()) })} />
 

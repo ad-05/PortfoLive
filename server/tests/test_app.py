@@ -44,6 +44,23 @@ def test_render_escapes_html_and_drops_bad_links():
     assert "javascript:" not in html
 
 
+def test_social_links_are_normalised_not_dropped():
+    d = PortfolioData(name="J", linkedin="linkedin.com/in/jane", github="janedoe")
+    assert d.linkedin == "https://linkedin.com/in/jane"
+    assert d.github == "https://github.com/janedoe"
+    assert PortfolioData(name="J", linkedin="in/jane").linkedin == "https://www.linkedin.com/in/jane"
+    assert PortfolioData(name="J", linkedin="https://www.linkedin.com/in/jane").linkedin == "https://www.linkedin.com/in/jane"
+    assert PortfolioData(name="J", linkedin="javascript:alert(document.cookie)").linkedin == ""
+
+
+@pytest.mark.parametrize("template", ["minimal", "midnight", "serif", "aurora", "terminal"])
+def test_every_template_shows_contact_links(template):
+    data = PortfolioData(name="Jane Doe", email="j@x.com", github="janedoe", linkedin="in/jane")
+    html = render_portfolio(template, data)
+    assert 'href="https://www.linkedin.com/in/jane"' in html and "LinkedIn" in html
+    assert 'href="https://github.com/janedoe"' in html and 'href="mailto:j@x.com"' in html
+
+
 def test_render_rejects_unknown_template():
     with pytest.raises(Exception, match="Unknown template"):
         render_portfolio("../../etc/passwd", PortfolioData(name="A"))
