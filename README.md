@@ -3,7 +3,6 @@
 Automated personal-portfolio generator with self-service deployment, delivered with a full DevOps toolchain.
 Users sign up, fill in a form, pick a template, click **Publish**, and get a live URL on AWS (S3 website hosting, or CloudFront when `enable_cloudfront=true`).
 
-**New here? Open [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md) and follow it from Part 1.**
 
 ## Architecture
 ```
